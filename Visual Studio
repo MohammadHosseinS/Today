@@ -1,6 +1,10 @@
 // Visual Studio
 
 
+
+
+
+
 // General Service
 using Entities;
 using Dapper;
@@ -37,6 +41,9 @@ namespace Service
         public async Task<string> SaveItem(Items item, int? Id)
         {
             return await db.ExecuteScalarAsync<string>("SaveItems", new {Id = Id, Name = item.Name, Price = item.Price}, commandType: CommandType.StoredProcedure).ConfigureAwait(false);
+            
+            // => این پائینی رو مثال زد آقای مغاری برای اجرای (دریافت سلکت و ور از سی شارپ و ست کردن فرام در اس کیو ال)ا
+            return await db.ExecuteScalarAsync<string>("SELECT * FROM dbo.Customers WHERE Id=5", commandType: CommandType.Text).ConfigureAwait(false); 
         }
         public async Task<string> SaveOrderFile_Item(OrderFiles orderFiles,List<Items> items, int? Id)
         {
@@ -123,6 +130,7 @@ namespace Service
         }
     }
 }
+
 
 
 
@@ -430,10 +438,6 @@ namespace RestaurantSystem
                 await RefreshForm();
             }
         }
-
-
-
-
 
 
 
