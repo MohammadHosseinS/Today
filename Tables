@@ -1,0 +1,25 @@
+// SQL Server Tables
+
+
+Branches:
+Id INT, City VARCHAR(50), Name VARCHAR(50)
+
+
+Customers:
+Id INT, Name VARCHAR(50), Phone VARCHAR(50), Address VARCHAR(50), BranchId INT
+
+
+Employees:
+Id INT, Name VARCHAR(50), UserName VARCHAR(50), PassWord VARCHAR(50), BranchId INT
+
+
+Items:
+Id INT, Name VARCHAR(50), Price INT
+
+
+OrderFiles:
+Id INT, CustomerId INT, Date DATETIME, TotalPrice INT
+
+
+OrderFiles_Items:
+Id INT, ItemsId INT, OFId INT
