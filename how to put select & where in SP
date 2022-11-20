@@ -8,3 +8,24 @@ SET @str= 'select '+ @select +' from Customers where '+@where
 
 PRINT @str
 EXEC(@str)
+
+
+
+// این بالائی حالت عادیشه، بدون پروسیجر
+// حالا این میشه پروسیجرش:
+
+CREATE PROC LISTING
+@Select VARCHAR(500),
+@Where VARCHAR(500)
+
+AS
+BEGIN 
+ 
+
+DECLARE @str VARCHAR(500) = 'SELECT' + @Select + 'FROM dbo.Customers WHERE' + @Where
+PRINT @str    -- این برای اینه که اگر ارور داد اون پائین بتونی چک کنی که مشکل چی بوده
+EXEC (@str)   -- اینجا حتما باید داخل پرانتز بذاری اسم این متغیره رو، و الا کل متنش رو به عنوانِ اسمِ یک پروسیجر می شناسه و ارور می ده
+
+
+END
+GO
