@@ -1,5 +1,9 @@
 // SQL Stored Procedures
 //1
+
+
+// این باید کاملا اصلاح بشه و مثل بچه آدم سلکت رو بگیره
+// گروپ بای هم باید بهش اضافه بشه
 CREATE PROC [dbo].[ListReport]
 @Selected VARCHAR(50),
 @Length INT,
