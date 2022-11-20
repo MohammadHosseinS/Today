@@ -1,0 +1,299 @@
+// SQL Stored Procedures
+//1
+CREATE PROC [dbo].[ListReport]
+@Selected VARCHAR(50),
+@Length INT,
+@ItemName VARCHAR(50), 
+@CustomerPhone VARCHAR(50),
+@Date DATETIME, @Date2 DATETIME
+AS
+BEGIN
+
+SELECT LEFT((RIGHT(@Selected, @Length +1)), @Length) FROM dbo.Branches 
+LEFT OUTER JOIN dbo.Customers  ON  dbo.Customers.BranchId = dbo.Branches.Id
+LEFT OUTER JOIN dbo.OrderFiles  ON  dbo.OrderFiles.CustomerId = dbo.Customers.Id
+LEFT OUTER JOIN dbo.OrderFiles_Items ON dbo.OrderFiles.Id = dbo.OrderFiles_Items.OFId
+LEFT OUTER JOIN dbo.Items ON dbo.OrderFiles_Items.ItemsId = dbo.Items.Id
+
+
+WHERE	
+(@ItemName IS NOT NULL AND dbo.Items.Name = @ItemName) OR
+(@CustomerPhone IS NOT NULL AND dbo.Customers.Phone = @CustomerPhone) OR
+(@Date IS NOT NULL AND @Date2 IS NOT NULL AND dbo.OrderFiles.Date BETWEEN @Date AND @Date2) 
+OR @ItemName IS NULL AND @CustomerPhone IS NULL AND (@Date IS NULL OR @Date2 IS NULL)
+
+END
+
+
+
+
+
+
+
+//2
+CREATE PROC [dbo].[DeleteOrderFile_Item]
+@OFId INT
+AS
+BEGIN
+	IF @OFId IS NOT NULL AND @OFId >-1
+	BEGIN
+    
+	DELETE FROM dbo.OrderFiles_Items WHERE OFId = @OFId
+	SELECT 'Hazf anjam shod'
+
+	END
+
+	ELSE
+    SELECT 'Voroodi namotabar'
+END
+
+
+
+
+
+
+
+//3
+CREATE PROC [dbo].[DeleteOrderFile]
+@Id INT
+AS
+BEGIN
+		IF EXISTS (SELECT * FROM dbo.OrderFiles WHERE Id = @Id)
+			BEGIN	
+				IF	EXISTS(SELECT * FROM dbo.OrderFiles_Items WHERE OFId = @Id)
+				BEGIN	
+				DELETE FROM dbo.OrderFiles_Items WHERE OFId = @Id
+				END
+			DELETE FROM dbo.OrderFiles WHERE Id = @Id
+			SELECT 'Hazf shod'
+			END
+		ELSE
+		SELECT 'yaft nashod'
+END
+
+
+
+
+
+
+
+//4
+CREATE PROC [dbo].[SaveCustomers]
+@Id INT,
+@Name VARCHAR(50),
+@Phone VARCHAR(50),
+@Address VARCHAR(50)
+AS 
+BEGIN
+	IF @Id IS NULL OR @Id = 0
+	BEGIN
+		INSERT INTO dbo.Customers VALUES (@Name, @Phone, @Address)
+		SELECT @Name + ' sabt shod'
+	END
+
+	ELSE	
+	BEGIN
+		IF EXISTS(SELECT * FROM dbo.Customers WHERE Id = @Id)
+		BEGIN        
+			UPDATE dbo.Customers SET Name = @Name , Phone = @Phone, Address = @Address WHERE Id = @Id
+			SELECT 'etelaate ' + @Name + ' virayesh shod'
+		END
+		ELSE
+			SELECT	'yaft nashod'
+	END
+
+END
+
+
+
+
+
+
+
+//5
+CREATE PROC [dbo].[SaveItems]
+@Id INT,
+@Name VARCHAR(50),
+@Price INT
+AS 
+BEGIN
+	IF @Id IS  NULL	OR @Id = 0
+	BEGIN
+		INSERT INTO dbo.Items VALUES (@Name, @Price)
+		SELECT @Name + ' sabt shod'
+	END
+	ELSE IF @Id > 0
+	BEGIN
+		UPDATE dbo.Items SET Name = @Name , Price = @Price WHERE Id = @Id
+		SELECT 'etelaate ' + @Name + ' virayesh shod'
+
+	END
+	ELSE 
+		SELECT 'Voroodi namotabar'
+
+END
+
+
+
+
+
+
+
+//6
+CREATE PROC [dbo].[SaveOrderFiles]
+@Id INT,
+@CustomerId INT,
+@Date DATETIME,
+@TotalPrice INT
+AS BEGIN
+		IF @Id IS NULL OR @Id = 0
+		BEGIN
+				INSERT INTO dbo.OrderFiles VALUES (@CustomerId, @Date, @TotalPrice)
+				SELECT 'Etelaat sabt shod'
+		END
+
+		ELSE IF @Id >0
+		BEGIN
+			IF EXISTS (SELECT * FROM dbo.OrderFiles WHERE Id = @Id)
+			BEGIN
+				UPDATE dbo.OrderFiles SET CustomerId = @CustomerId, TotalPrice = @TotalPrice WHERE Id = @Id
+				SELECT 'Etelaat virayesh shod'
+			END
+			ELSE IF NOT EXISTS (SELECT * FROM dbo.OrderFiles WHERE Id = @Id)
+			SELECT 'OrderFiles yaft nashod'
+		END
+		ELSE 
+				SELECT 'Voroodi namotabar'
+
+END
+
+
+
+
+
+
+
+//7
+CREATE PROC [dbo].[SaveOrderFilesItems]
+@Item_Name VARCHAR(50),
+@OrderFiles_Date DATETIME
+
+AS 
+BEGIN
+	IF	EXISTS (SELECT Id FROM dbo.Items WHERE Name = @Item_Name) AND EXISTS (SELECT Id FROM dbo.OrderFiles WHERE Date = @OrderFiles_Date)
+		BEGIN	
+			INSERT INTO dbo.OrderFiles_Items VALUES ((SELECT Id FROM dbo.Items WHERE Name = @Item_Name),(SELECT Id FROM dbo.OrderFiles WHERE Date = @OrderFiles_Date))
+			SELECT	'etelaat sabt shod'
+		END
+	ELSE IF NOT EXISTS (SELECT Id FROM dbo.Items WHERE Name = @Item_Name) or NOT EXISTS (SELECT Id FROM dbo.OrderFiles WHERE Date = @OrderFiles_Date)
+		SELECT 'yaft nashod'
+END
+
+
+
+
+
+
+
+//8
+CREATE PROC [dbo].[ReadOrderFile_Items]
+@OrderId INT
+AS 
+BEGIN
+		IF @OrderId IS NOT NULL OR NOT @OrderId = 0
+				SELECT OI.Id AS Id, I.Name, I.Price, O.Date, O.TotalPrice FROM dbo.Items I
+				JOIN dbo.OrderFiles_Items OI ON I.Id = OI.ItemsId
+				JOIN dbo.OrderFiles O ON OI.OFId = O.Id
+				WHERE OI.OFId = @OrderId
+		ELSE
+				SELECT 'Voroodi Namotabar'
+
+END
+
+
+
+
+
+
+
+// 9
+ALTER PROC [dbo].[ReadOrderFiles]
+@Id INT,
+@Date DATETIME
+AS
+BEGIN
+		IF @Id IS NULL OR @Id = 0 AND @Date IS NULL
+				SELECT O.Id AS Id, Name, Phone, TotalPrice, Date FROM dbo.OrderFiles O LEFT OUTER JOIN dbo.Customers C ON C.id = O.CustomerId
+
+		ELSE IF @Id > 0 AND @Date IS NULL
+				SELECT O.Id AS Id, Name, Phone, TotalPrice, Date FROM dbo.OrderFiles O LEFT OUTER JOIN dbo.Customers C ON C.id = O.CustomerId WHERE O.Id = @Id
+
+		ELSE IF (@Id IS NULL OR @Id = 0) AND @Date IS NOT NULL 
+				SELECT O.Id AS Id, Name, Phone, TotalPrice, Date FROM dbo.OrderFiles O LEFT OUTER JOIN dbo.Customers C ON C.id = O.CustomerId WHERE Date = @Date
+
+		ELSE
+				SELECT 'Voroodi Namotabar'
+END
+
+
+
+
+
+
+
+//10
+CREATE PROC [dbo].[ReadItems]
+@Id INT,
+@Name VARCHAR(50)
+AS
+BEGIN
+		IF (@Id IS NULL OR @Id = 0) AND (@Name IS NULL OR @Name = '')
+				SELECT * FROM dbo.Items
+
+		ELSE IF (@Id IS NULL OR @Id = 0) AND (@Name = 'Empty')
+				SELECT * FROM dbo.Items WHERE 1 = 2
+
+		ELSE IF (@Id IS NULL OR @Id = 0) AND (@Name IS NOT NULL OR NOT @Name = '' AND NOT @Name = 'Empty' )
+				SELECT * FROM dbo.Items WHERE Name = @Name
+
+		ELSE IF (@Id > 0)
+				SELECT * FROM dbo.Items WHERE Id = @Id
+
+		-- The following is used for AutoCompleteBoxes
+		ELSE IF (@Id < 0)
+				SELECT Name FROM dbo.Items
+
+		ELSE
+				SELECT 'Voroodi namotabar'
+	
+END
+
+
+
+
+
+
+
+//11
+CREATE PROC [dbo].[ReadCustomers]
+@Id int,
+@Phone VARCHAR(50)
+AS
+BEGIN
+		IF (@Id IS NULL OR @Id = 0) AND (@Phone IS NULL OR @Phone = '')
+				SELECT * FROM dbo.Customers
+
+		ELSE IF (@Id IS NULL OR @Id = 0) AND (@Phone IS NOT NULL OR NOT @Phone = '')
+				SELECT * FROM dbo.Customers WHERE Phone = @Phone
+
+		ELSE IF (@Id > 0) AND (@Phone IS NULL OR @Phone = '')
+				SELECT * FROM dbo.Customers WHERE Id = @Id
+
+		-- The following is used for AutoCompleteBoxes
+		ELSE IF (@Id < 0)
+				SELECT Phone FROM dbo.Customers
+		
+		ELSE
+				SELECT 'Voroodi namotabar'
+
+END
