@@ -1,0 +1,10 @@
+
+DECLARE @select VARCHAR(500)='name'
+DECLARE @where VARCHAR(500)='id=5'
+DECLARE @str NVARCHAR(500)
+
+--SELECT name FROM dbo.Customers WHERE id = 5
+SET @str= 'select '+ @select +' from Customers where '+@where
+
+PRINT @str
+EXEC(@str)
