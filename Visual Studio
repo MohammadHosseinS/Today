@@ -1,0 +1,617 @@
+// Visual Studio
+
+
+// General Service
+using Entities;
+using Dapper;
+using System.Data;
+
+namespace Service
+{
+    internal class GeneralService : Data, IGeneralService
+    {
+        public GeneralService(string connectionstring) : base(connectionstring)
+        {
+
+        }
+        public DataSet ConvertDataReaderToDataSet(IDataReader data)
+        {
+            DataSet ds = new DataSet();
+            int i = 0;
+            while (!data.IsClosed)
+            {
+                ds.Tables.Add("Table" + (i + 1));
+                ds.EnforceConstraints = false;
+                ds.Tables[i].Load(data);
+                i++;
+            }
+            return ds;
+        }
+
+        public async Task<string> SaveCustomer(Customers customer, int? Id)
+        {
+            var param = new DynamicParameters(customer);
+            param.AddDynamicParams(Id);
+            return await db.ExecuteScalarAsync<string>("SaveCustomers", param, commandType: CommandType.StoredProcedure).ConfigureAwait(false) ;
+        }
+        public async Task<string> SaveItem(Items item, int? Id)
+        {
+            return await db.ExecuteScalarAsync<string>("SaveItems", new {Id = Id, Name = item.Name, Price = item.Price}, commandType: CommandType.StoredProcedure).ConfigureAwait(false);
+        }
+        public async Task<string> SaveOrderFile_Item(OrderFiles orderFiles,List<Items> items, int? Id)
+        {
+            try
+            {
+                if (Id == null)
+                {
+                    string first = await db.ExecuteScalarAsync<string>("SaveOrderFiles", new { Id = Id, CustomerId = orderFiles.CustomerId, Date = orderFiles.Date, TotalPrice = orderFiles.TotalPrice }, commandType: CommandType.StoredProcedure).ConfigureAwait(false);
+                    foreach (var item in items)
+                    {
+                        int a = 0;
+                        var param = new DynamicParameters();
+                        param.Add("Item_Name", item.Name);
+                        param.Add("OrderFiles_Date", orderFiles.Date);
+                        await db.ExecuteAsync("SaveOrderFilesItems", param, commandType: CommandType.StoredProcedure).ConfigureAwait(false);
+                    }
+                    return first;
+                }
+                foreach (var item in items)
+                {
+                    var param = new DynamicParameters();
+                    param.Add("Item_Name", item.Name);
+                    param.Add("OrderFiles_Date", orderFiles.Date);
+                    await db.ExecuteAsync("SaveOrderFilesItems", param, commandType: CommandType.StoredProcedure).ConfigureAwait(false);
+                }
+                return "Virayesh anjam shod";
+            }
+            catch (Exception e)
+            {
+                return e.Message;
+            }
+        }
+        public async Task<string> DeleteOrderFile_Item(int? OFId)
+        {
+            return await db.ExecuteScalarAsync<string>("DeleteOrderFile_Item", new { OFId = OFId }, commandType: CommandType.StoredProcedure).ConfigureAwait(false);
+        }
+        public async Task<string> DeleteOrderFile(int? Id)
+        {
+            return await db.ExecuteScalarAsync<string>("DeleteOrderFile", new { Id = Id }, commandType:CommandType.StoredProcedure).ConfigureAwait(false);
+        }
+        public async Task<List<Items>> ReadItems(int? Id, string? Name)
+        {
+            var res = await db.QueryAsync<Items>("ReadItems", new { Id = Id, Name = Name }, commandType: CommandType.StoredProcedure).ConfigureAwait(false);
+            return res.ToList();
+        }
+        public async Task<List<Customers>> ReadCustomers(int? Id, string? Phone)
+        {
+            var res = await db.QueryAsync<Customers>("ReadCustomers", new { Id = Id, Phone = Phone }, commandType: CommandType.StoredProcedure).ConfigureAwait(false);
+            return res.ToList();
+        }
+        public async Task<DataSet> ReadOrderFiles(int? Id, DateTime? Date)
+        {
+            var sp = "ReadOrderFiles";
+            var param = new DynamicParameters();
+            param.Add("Id", Id);
+            param.Add("Date", Date);
+            var res = await SqlMapper.ExecuteReaderAsync(db, sp, param, commandType: CommandType.StoredProcedure).ConfigureAwait(false);
+            var ds = ConvertDataReaderToDataSet(res);
+            return ds;
+        }
+        public async Task<DataSet> ReadOrderFile_Items(int? Id)
+        {
+            var sp = "ReadOrderFile_Items";
+            var param = new DynamicParameters();
+            param.Add("OrderId", Id);
+            var res = await SqlMapper.ExecuteReaderAsync(db, sp, param, commandType: CommandType.StoredProcedure).ConfigureAwait(false);
+            var ds = ConvertDataReaderToDataSet(res);
+            return ds;
+        }
+        public async Task<DataSet> ReadListReport(DynamicParameters param)
+        {
+            var res = await SqlMapper.ExecuteReaderAsync(db, "ListReport", param, commandType: CommandType.StoredProcedure).ConfigureAwait(false);
+            var ds = ConvertDataReaderToDataSet(res);
+            return ds;
+        }
+
+
+
+        public async Task<string> test(string? stringa, DateTime? datea)
+        {
+            var param = new DynamicParameters(stringa);
+            param.AddDynamicParams(datea);
+            return await db.ExecuteScalarAsync<string>("testingDynamic", param, commandType: CommandType.StoredProcedure).ConfigureAwait(false);
+        }
+    }
+}
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+// List Report Form
+using Dapper;
+using System.Data;
+
+namespace RestaurantSystem
+{
+    public partial class ListReportForm : Form
+    {
+        public ListReportForm()
+        {
+            InitializeComponent();
+        }
+
+        string select1 = "dbo.Branches.City, dbo.Branches.Name";
+        string select2 = "dbo.Customers.Phone + dbo.Customers.Name";
+        string select3 = "SUM(dbo.OrderFiles.TotalPrice)";
+
+        //string where1 = "dbo.items.Name = ''";
+        //string where2 = "dbo.OrderFiles.Date BETWEEN '' AND ''";
+        //string where3 = "dbo.Customers.Phone = ''";
+
+        Bridge bridge = new(@"Persist Security Info=False;User ID=moghari2;password=123456;Initial Catalog=RestaurantSystem;Data Source=(local)");
+
+        private void WDate_CheckedChanged(object sender, EventArgs e)
+        {
+            dateTimePicker1.Enabled = WDate.Checked ? true : false;
+            dateTimePicker2.Enabled = WDate.Checked ? true : false;
+        }
+        private void WPhone_CheckedChanged(object sender, EventArgs e)
+        {
+            textBox2.Enabled = WPhone.Checked ? true : false;
+        }
+        private void WItem_CheckedChanged(object sender, EventArgs e)
+        {
+            textBox1.Enabled = WItem.Checked ? true : false;
+        }
+
+
+
+
+        private async void SearchBtn_Click(object sender, EventArgs e)
+        {
+            panel1.Visible = false;
+            panel2.Visible = true;
+
+            string SqlSelect = (Sshobe.Checked == true && SCustomer.Checked == true && STotalPrice.Checked == false) ? select1 + ", " + select2 :
+                (Sshobe.Checked == true && SCustomer.Checked == false && STotalPrice.Checked == true) ? select1 + ", " + select3 :
+                (Sshobe.Checked == true && SCustomer.Checked == true && STotalPrice.Checked == false) ? select1 + ", " + select2 :
+                (Sshobe.Checked == true && SCustomer.Checked == false && STotalPrice.Checked == false) ? select1 :
+                (Sshobe.Checked == false && SCustomer.Checked == true && STotalPrice.Checked == true) ? select2 + ", " + select3 :
+                (Sshobe.Checked == false && SCustomer.Checked == true && STotalPrice.Checked == false) ? select2 :
+                (Sshobe.Checked == false && SCustomer.Checked == false && STotalPrice.Checked == true) ? select3 :
+                select1 + ", " + select2 + ", " + select3;
+
+
+            string? ItemName = textBox1.Text != "" ? textBox1.Text : null;
+
+            string? CustomerPhone = textBox2.Text != "" ? textBox2.Text : null;
+
+            DateTime now = DateTime.Now;
+            now.AddTicks(-(now.Ticks % TimeSpan.TicksPerSecond));
+
+            DateTime middle = dateTimePicker1.Value;
+            middle.AddTicks(-(middle.Ticks % TimeSpan.TicksPerSecond));
+
+            DateTime? date1 = new();
+            date1 = middle == now ? null : middle;
+
+
+
+
+            DateTime middle2 = dateTimePicker2.Value;
+            middle2.AddTicks(-(middle2.Ticks % TimeSpan.TicksPerSecond));
+
+            DateTime? date2 = new();
+            date2 = middle2 < middle ? middle2 : null;
+
+            //string SqlWhere = (WItem.Checked == true && WPhone.Checked == false && WDate.Checked == true) ? "WHERE dbo.items.Name = '" + textBox1.Text + "'" + "AND " + "dbo.OrderFiles.Date BETWEEN '" + date1 + "' AND '" + date2 + "'" :
+            //    (WItem.Checked == true && WPhone.Checked == true && WDate.Checked == false) ? "WHERE dbo.items.Name = '" + textBox1.Text + "'" + "AND " + "dbo.Customers.Phone = '" + textBox2.Text + "'" :
+            //    (WItem.Checked == true && WPhone.Checked == false && WDate.Checked == false) ? "WHERE dbo.items.Name = '" + textBox1.Text + "'" :
+            //    (WItem.Checked == false && WPhone.Checked == true && WDate.Checked == false) ? "WHERE dbo.Customers.Phone = '" + textBox2.Text + "'" :
+            //    (WItem.Checked == false && WPhone.Checked == true && WDate.Checked == true) ? "WHERE dbo.Customers.Phone = '" + textBox2.Text + "'" + "AND" + "dbo.OrderFiles.Date BETWEEN '" + date1 + "' AND '" + date2 + "'" :
+            //    (WItem.Checked == false && WPhone.Checked == false && WDate.Checked == true) ? "WHERE dbo.OrderFiles.Date BETWEEN '" + date1 + "' AND '" + date2 + "'" :
+            //    (WItem.Checked == true && WPhone.Checked == true && WDate.Checked == true) ? "WHERE dbo.items.Name = '" + textBox1.Text + "'" + "AND " + "dbo.Customers.Phone = '" + textBox2.Text + "'" + "AND" + "dbo.OrderFiles.Date BETWEEN '" + date1 + "' AND '" + date2 + "'" :
+            //    " ";
+
+
+            int Length = SqlSelect.Length;
+
+            var param = new DynamicParameters();
+
+
+            param.Add("Selected", SqlSelect);
+            param.Add("Length", Length);
+            param.Add("ItemName", ItemName);
+            param.Add("CustomerPhone", CustomerPhone);
+            param.Add("Date", date1);
+            param.Add("Date2", date2);
+
+            DataSet ds = await bridge.ReadListReport(param);
+            DataTable dt = ds.Tables[0];
+            dataGridView1.DataSource = null;
+            dataGridView1.DataSource = dt.DefaultView;
+
+        }
+
+        private void ReturnBtn_Click(object sender, EventArgs e)
+        {
+            panel2.Visible = false;
+            panel1.Visible = true;
+        }
+    }
+}
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+// Save Order Form
+using Entities;
+using System.Data;
+
+namespace RestaurantSystem
+{
+    public partial class SaveOrderForm : Form
+    {
+        public SaveOrderForm()
+        {
+            InitializeComponent();
+        }
+        Bridge bridge = new Bridge(@"Persist Security Info=False;User ID=moghari2;password=123456;Initial Catalog=RestaurantSystem;Data Source=(local)");
+        int? Id = null;
+        string? CustomerPhone = null;
+        string? Name = null;
+        bool Update = false;
+        int sumPrice = 0;
+
+        Customers customer = new Customers();
+
+        List<Items> items = new List<Items>();
+
+        List<int?> Deleted = new List<int?>();
+
+
+
+
+        async Task<string> RefreshForm()
+        {
+            Id = null;
+            Name = null;
+            items.Clear();
+            Deleted.Clear();
+            customer = new Customers();
+            sumPrice = 0;
+            label6.Text = "Price";
+            Update = false;
+            button1.Text = "ثبت سفارش";
+            DataSet ds = await bridge.ReadOrderFiles(null, null);
+            dataGridView1.DataSource = null;
+            dataGridView1.DataSource = ds.Tables[0].DefaultView;
+            textBox1.Clear();
+            textBox3.Clear();
+            NameLabel.Text = "- - -";
+            PhoneLabel.Text = "- - -";
+            AddressLabel.Text = "- - -";
+            return "success";
+        }
+
+        async Task<string> FindCustomer(string? PhoneNumber)
+        {
+            customer = new Customers();
+            string? Phone = PhoneNumber == null ? null : textBox1.Text;
+            List<Customers> customers = await bridge.ReadCustomers(null, Phone);
+            if (customers.Count > 0)
+            {
+                customer = customers[0];
+                textBox1.Text = customer.Phone;
+                NameLabel.Text = customer.Name;
+                PhoneLabel.Text = customer.Phone;
+                AddressLabel.Text = customer.Address;
+                return $"Moshtari:\n{customer.Name + " " + customer.Phone + " "}";
+            }
+            else
+            {
+                textBox1.Clear();
+                NameLabel.Text = "- - -";
+                PhoneLabel.Text = "- - -";
+                AddressLabel.Text = "- - -";
+                return "Moredi ba in shomare yaft nashod";
+            }
+
+        }
+
+
+        private async void SaveOrderForm_Load(object sender, EventArgs e)
+        {
+            await RefreshForm();
+            textBox1.Text = "09105050500";
+            textBox3.Text = "qom";
+            dataGridView2.DataSource = null;
+            dataGridView2.DataSource = await bridge.ReadItems(null, null);
+        }
+
+
+
+
+        private async void button1_Click(object sender, EventArgs e)
+        {
+            if (textBox1.Text != "")
+            {
+                if (!Update)
+                {
+                    if (items.Count > 0)
+                    {
+                        OrderFiles of = new OrderFiles();
+
+                        // of's CustomerId
+                        of.CustomerId = customer != null ? customer.Id : -1;
+
+                        // of's Date
+                        DateTime dt = DateTime.Now;
+                        dt.AddTicks(-(dt.Ticks % TimeSpan.TicksPerSecond));
+                        of.Date = dt;
+
+                        // of's TotalPrice
+                        of.TotalPrice = sumPrice;
+
+                        MessageBox.Show(await bridge.SaveOrderFile_Item(of, items, null));
+                    }
+                    else MessageBox.Show("No Items were Found");
+
+                }
+                else
+                {
+                    if (items.Count > 0)
+                    {
+                        OrderFiles of = new OrderFiles();
+
+                        // of Id
+                        of.Id = (int)Id;
+
+                        // of CustomerId
+                        of.CustomerId = customer != null ? customer.Id : -1;
+
+                        // of_Items
+                        DataSet dds = await bridge.ReadOrderFile_Items(of.Id);
+                        List<Items> input = dds.Tables[0].AsEnumerable().Select(dataRow => new Items { Id = dataRow.Field<int>("Id"), Name = dataRow.Field<string>("Name"), Price = dataRow.Field<int>("Price") }).ToList();
+                        if (input != items)
+                        {
+                            await bridge.DeleteOrderFile_Item(of.Id);
+                        }
+
+                        // of Date
+                        DataSet ds = await bridge.ReadOrderFiles(Id, null);
+                        List<OrderFiles> ofs = ds.Tables[0].AsEnumerable().Select(datarow => new OrderFiles { Date = datarow.Field<DateTime>("Date") }).ToList();
+                        of.Date = ofs[0].Date;
+
+                        // of TotalPrice
+                        of.TotalPrice = sumPrice;
+
+
+                        MessageBox.Show(await bridge.SaveOrderFile_Item(of, items, 1));
+                    }
+                    else MessageBox.Show("No items were found");
+
+                    textBox1.Clear();
+                    await FindCustomer("0000000000");
+                }
+
+                    await RefreshForm();
+
+            }
+            else
+            {
+                MessageBox.Show("Shomare moshtari yaft nashod");
+                await RefreshForm();
+            }
+        }
+
+
+
+
+
+
+
+
+
+        private async void SetCustomerBtn_Click(object sender, EventArgs e)
+        {
+            await FindCustomer(textBox1.Text);
+        }
+
+
+
+
+        private async void AddItemBtn_Click(object sender, EventArgs e)
+        {
+            List<Items> input = new ();
+            AddItemForm aif = new (input);
+            aif.ShowDialog();
+            if (aif.Items.Count > 0)
+            {
+                dataGridView1.DataSource = null;
+                dataGridView1.DataSource = aif.Items;
+                sumPrice = 0;
+                foreach (var item in aif.Items)
+                {
+                    sumPrice += item.Price;
+                }
+                label6.Text = sumPrice.ToString();
+                items.Clear();
+                items = aif.Items;
+            }
+            else
+            {
+                MessageBox.Show("Moredi sabt nashod");
+            }
+        }
+
+
+
+
+        private async void dataGridView1_CellDoubleClick(object sender, DataGridViewCellEventArgs e)
+        {
+            Id = Convert.ToInt32(dataGridView1.Rows[e.RowIndex].Cells["Id"].Value);
+            CustomerPhone = Convert.ToString(dataGridView1.Rows[e.RowIndex].Cells["Phone"].Value);
+            DataSet ds = await bridge.ReadOrderFile_Items(Id);
+            List<Items> input = ds.Tables[0].AsEnumerable().Select(dataRow => new Items { Id = dataRow.Field<int>("Id"), Name = dataRow.Field<string>("Name"), Price = dataRow.Field<int>("Price") }).ToList();
+            AddItemForm aif = new AddItemForm(input, Id);
+            List<Items> inputLike = new();
+            inputLike.AddRange(input);
+            await FindCustomer(CustomerPhone);
+            aif.ShowDialog();
+            if (aif.Items.Count != inputLike.Count)
+            {
+                button1.Text = "ویرایش";
+                items.Clear();
+                items = aif.Items;
+                dataGridView1.DataSource = null;
+                dataGridView1.DataSource = items;
+                Update = true;
+                sumPrice = 0;
+                foreach (var item in items)
+                {
+                    sumPrice += item.Price;
+                }
+                label6.Text = sumPrice.ToString();
+            }            
+        }
+
+
+
+
+        private void dataGridView1_CellContentClick(object sender, DataGridViewCellEventArgs e)
+        {
+            Id = Convert.ToInt32(dataGridView1.Rows[e.RowIndex].Cells["Id"].Value);
+        }
+
+
+
+
+        private async void DeleteToolStripMenuItem_Click(object sender, EventArgs e)
+        {
+            string a = Id != null ? await bridge.DeleteOrderFile(Id) : "Id be dorosti entekhab nashode";
+            MessageBox.Show(a);
+            await RefreshForm();
+        }
+
+        private void dataGridView1_SelectionChanged(object sender, EventArgs e)
+        {
+            if (Id <= 0)
+            {
+                Id = null;
+            }
+        }
+    }
+}
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+// Save Order Form - Add Item
+using Entities;
+
+namespace RestaurantSystem
+{
+    public partial class AddItemForm : Form
+    {
+        public AddItemForm(List<Items> input, int? OFId = null)
+        {
+            Items = input;
+            OF_Id = OFId;
+            InitializeComponent();
+        }
+        public List<Items> Items { get; set; } = new List<Items>();
+        private int? OF_Id { get; set; }
+
+        Bridge bridge = new Bridge(@"Persist Security Info=False;User ID=moghari2;password=123456;Initial Catalog=RestaurantSystem;Data Source=(local)");
+        int? Id;
+        string? Name;
+
+
+
+
+        private async void AddItemBtn_Click(object sender, EventArgs e)
+        {
+            Name = ItemNameTxt.Text;
+            List<Items> tempItems = await bridge.ReadItems(Id, Name);
+            if (tempItems.Count > 0)
+            {
+                Items item = tempItems.FirstOrDefault();
+                Items.Add(item);
+            }
+            dataGridView1.DataSource = null;
+            dataGridView1.DataSource = Items;
+            
+        }
+
+
+
+
+        private void AddItemForm_Load(object sender, EventArgs e)
+        {
+            dataGridView1.DataSource = null;
+            dataGridView1.DataSource = Items;            
+
+            if (OF_Id != null)
+            {
+                OFIdLabel.Text = OF_Id.ToString();
+            }
+            else { OFIdLabel.Text = String.Empty; label2.Visible = false; }
+        }
+
+        private void button1_Click(object sender, EventArgs e)
+        {
+            DialogResult dr = MessageBox.Show("آیا از حذف مطمئن هستید؟", "!تمام آیتم ها حذف می شوند", MessageBoxButtons.YesNo);
+            if (dr == DialogResult.Yes)
+            {
+                Items.Clear();
+            }
+            dataGridView1.DataSource = null;
+            dataGridView1.DataSource = Items;
+
+        }
+    }
+}
+
+
