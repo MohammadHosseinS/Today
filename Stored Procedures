@@ -28,6 +28,8 @@ OR @ItemName IS NULL AND @CustomerPhone IS NULL AND (@Date IS NULL OR @Date2 IS 
 
 END
 
+// قبلا نوشته بود:
+SELECT @Selected FROM dbo.Branches ...
 
 
 
